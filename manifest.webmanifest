@@ -1,0 +1,20 @@
+{
+  "name": "KLM Desain",
+  "short_name": "KLM Desain",
+  "description": "Editor desain grafis: template, AI, hapus latar, animasi, ekspor RGB & CMYK.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#e6e8ee",
+  "theme_color": "#e9542f",
+  "lang": "id",
+  "categories": ["design", "graphics", "productivity"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

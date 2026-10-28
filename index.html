@@ -1,8 +1,22 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Editor desain grafis gratis: template, AI, hapus latar, animasi, ekspor RGB & CMYK.">
+<meta name="theme-color" content="#e9542f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="KLM Desain">
 <title>KLM Desain</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Montserrat:ital,wght@0,400;0,700;1,400;1,700&family=Lexend:wght@400;700&family=Nunito:ital,wght@0,400;0,700;1,400;1,700&family=Raleway:ital,wght@0,400;0,700;1,400;1,700&family=Lato:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Oswald:wght@400;700&family=Bebas+Neue&family=Anton&family=Archivo+Black&family=Righteous&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Merriweather:ital,wght@0,400;0,700;1,400;1,700&family=Roboto+Slab:wght@400;700&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Pacifico&family=Lobster&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Caveat:wght@400;700&display=swap">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <style>
 /* Layout: editor kerja — header tipis, rel ikon kiri, laci alat, kanvas di tengah, panel properti kanan; di HP rel pindah ke bawah dan panel jadi lembar bawah */
 :root{
@@ -249,7 +263,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .aiconn.on{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-color:color-mix(in srgb,var(--ok) 50%,var(--line));background:color-mix(in srgb,var(--ok) 10%,var(--panel))}
 .aiconn strong{font-size:13.5px}
 .btn.danger{color:var(--danger)}
+.steps{margin:0;padding-left:20px;display:grid;gap:8px;line-height:1.45}
+#installBtn{height:34px;padding:0 12px}
 </style>
+</head>
+<body>
+
 
 
 <div class="app">
@@ -258,6 +277,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <input id="docName" class="docname" aria-label="Nama desain" value="Desain tanpa judul">
     <span id="status" class="status">Memuat…</span>
     <span class="sp"></span>
+    <button class="btn" id="installBtn" hidden><span id="installIco"></span><span class="hide-sm">Pasang</span></button>
     <button class="ib" id="playBtn" title="Putar animasi" aria-label="Putar animasi"></button>
     <button class="ib" id="undoBtn" title="Urungkan (Ctrl+Z)" aria-label="Urungkan" disabled></button>
     <button class="ib" id="redoBtn" title="Ulangi (Ctrl+Y)" aria-label="Ulangi" disabled></button>
@@ -270,6 +290,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <button data-act="open">Buka proyek (.json)</button>
         <button data-act="save">Simpan proyek (.json)<span class="k">Ctrl+S</span></button>
         <hr>
+        <button data-act="install" id="menuInstall" hidden>Pasang sebagai aplikasi</button>
         <button data-act="keys">Pintasan keyboard</button>
       </div>
     </div>
@@ -1552,7 +1573,7 @@ $('#fileOne').addEventListener('change',async e=>{
 $('#fileProj').addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value=''; if(f) openProjectFile(f); });
 $('#docName').addEventListener('change',e=>{ doc.name=e.target.value.trim()||'Desain tanpa judul'; e.target.value=doc.name; persistSoon(); });
 $('#docName').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
-$('#undoBtn').innerHTML=icon('undo'); $('#playBtn').innerHTML=icon('play'); $('#redoBtn').innerHTML=icon('redo'); $('#menuBtn').innerHTML=icon('menu'); $('#exportIco').innerHTML=icon('dl',18);
+$('#undoBtn').innerHTML=icon('undo'); $('#playBtn').innerHTML=icon('play'); $('#installIco').innerHTML=icon('dl',18); $('#installBtn').onclick=()=>doInstall(); $('#redoBtn').innerHTML=icon('redo'); $('#menuBtn').innerHTML=icon('menu'); $('#exportIco').innerHTML=icon('dl',18);
 $('#drawerClose').innerHTML=icon('close',18); $('#propsClose').innerHTML=icon('close',18);
 $('#pgAdd').innerHTML=icon('plus',18); $('#pgDup').innerHTML=icon('dup',18); $('#pgDel').innerHTML=icon('trash',18); $('#pgLeft').innerHTML=icon('left',18); $('#pgRight').innerHTML=icon('right',18);
 $('#zOut').innerHTML=icon('minus',18); $('#zIn').innerHTML=icon('plus',18); $('#zFit').innerHTML=icon('fit',18);
@@ -1567,7 +1588,7 @@ $('#menuBtn').onclick=e=>{ e.stopPropagation(); pop.hidden=!pop.hidden; };
 document.addEventListener('click',e=>{ if(!pop.hidden&&!pop.contains(e.target)) pop.hidden=true; });
 pop.addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return; pop.hidden=true;
-  ({new:openNew,resize:openResize,open:()=>$('#fileProj').click(),save:saveProject,keys:openKeys})[b.dataset.act]();
+  ({new:openNew,resize:openResize,open:()=>$('#fileProj').click(),save:saveProject,keys:openKeys,install:doInstall})[b.dataset.act]();
 });
 function openKeys(){
   const K=[['Ctrl+Z','Urungkan'],['Ctrl+Y / Ctrl+Shift+Z','Ulangi'],['Ctrl+C / Ctrl+V','Salin / tempel'],['Ctrl+X','Potong'],['Ctrl+D','Duplikat'],['Ctrl+G','Kelompokkan'],['Ctrl+Shift+G','Pisahkan grup'],['Ctrl+A','Pilih semua'],['Delete','Hapus elemen'],['Panah','Geser 1 px (Shift: 10 px)'],['T','Tambah teks'],['Ctrl + roda tetikus','Perbesar / perkecil'],['Ctrl+0','Pas di layar'],['Ctrl+S','Simpan proyek'],['Esc','Batalkan pilihan']];
@@ -2870,7 +2891,7 @@ async function exportPrint(idxs,po){
 
 
 /* ================= fitur AI (Pollinations, memakai akun pengguna) ================= */
-const POLLI={gen:'https://gen.pollinations.ai',enter:'https://enter.pollinations.ai',appKey:'',defaultBudget:20,defaultExpiry:30};
+const POLLI={gen:'https://gen.pollinations.ai',enter:'https://enter.pollinations.ai',appKey:'pk_SmiND7DbZREzNiQm',defaultBudget:20,defaultExpiry:30};
 const LS={get(k,d=''){ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } },set(k,v){ try{ if(v==null||v==='') localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} }};
 const polliKey=()=>LS.get('klm.polli.key');
 const polliAppKey=()=>LS.get('klm.polli.app')||POLLI.appKey;
@@ -2957,7 +2978,7 @@ function aiRunner(btn,statusEl){
 }
 /* ---------- menghubungkan akun ---------- */
 function b64url(bytes){ let s=''; bytes.forEach(b=>s+=String.fromCharCode(b)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function polliRedirectURI(){ return location.origin+location.pathname; }
+function polliRedirectURI(){ return location.origin+location.pathname.replace(/index\.html$/,''); }
 function polliLogin(){
   const app=polliAppKey();
   if(!app){ toast('Isi App Key (pk_…) di Pengaturan AI dulu, atau tempel API key langsung.'); openPolliSettings(); return; }
@@ -3265,9 +3286,61 @@ function magicWriteSection(o,content){
 }
 
 
+/* ================= PWA: pasang sebagai aplikasi, offline, pembaruan ================= */
+let installEvt=null, swReloading=false;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: window-controls-overlay)').matches||navigator.standalone===true;
+const pwaCapable=()=>('serviceWorker' in navigator)&&window.isSecureContext&&!inClaude()&&!!document.querySelector('link[rel=manifest]');
+function showInstall(){
+  const can=pwaCapable()&&!isStandalone();
+  const hb=$('#installBtn'), mb=$('#menuInstall');
+  if(hb) hb.hidden=!(can&&(installEvt||isIOS));
+  if(mb) mb.hidden=!can;
+}
+async function doInstall(){
+  if(installEvt){
+    installEvt.prompt();
+    try{ const r=await installEvt.userChoice; if(r&&r.outcome==='accepted') toast('Memasang KLM Desain…'); }catch(_){}
+    installEvt=null; showInstall(); return;
+  }
+  const steps=isIOS?[
+    'Buka halaman ini di Safari.',
+    'Ketuk tombol Bagikan (kotak dengan panah ke atas) di bawah layar.',
+    'Pilih "Tambahkan ke Layar Utama", lalu ketuk Tambah.'
+  ]:/Android/i.test(navigator.userAgent)?[
+    'Buka halaman ini di Chrome.',
+    'Ketuk menu ⋮ di kanan atas.',
+    'Pilih "Instal aplikasi" atau "Tambahkan ke layar utama".'
+  ]:[
+    'Buka halaman ini di Chrome atau Edge.',
+    'Klik ikon pasang (monitor dengan panah) di ujung kanan kolom alamat, atau menu ⋮ → "Instal KLM Desain".',
+    'KLM Desain akan muncul di Start Menu / Launchpad dan bisa dibuka tanpa browser.'
+  ];
+  modal('Pasang KLM Desain',h('div',{style:'display:grid;gap:10px'},
+    h('p',{class:'hint',style:'margin:0'},'Setelah dipasang, KLM Desain terbuka seperti aplikasi biasa dan tetap bisa dipakai saat offline (kecuali fitur AI).'),
+    h('ol',{class:'steps'},steps.map(s=>h('li',{},s)))));
+}
+function setupPWA(){
+  showInstall();
+  if(!pwaCapable()) return;
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; showInstall(); });
+  window.addEventListener('appinstalled',()=>{ installEvt=null; showInstall(); toast('KLM Desain terpasang di perangkat Anda'); });
+  matchMedia('(display-mode: standalone)').addEventListener('change',showInstall);
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const offer=w=>toast('Versi baru KLM Desain tersedia',{label:'Muat ulang',fn:()=>{ swReloading=true; w.postMessage('skip'); }});
+    if(reg.waiting&&navigator.serviceWorker.controller) offer(reg.waiting);
+    reg.addEventListener('updatefound',()=>{ const w=reg.installing; if(!w) return; w.addEventListener('statechange',()=>{ if(w.state==='installed'&&navigator.serviceWorker.controller) offer(w); }); });
+    setInterval(()=>reg.update().catch(()=>{}),60*60*1000);
+  }).catch(e=>console.warn('Service worker gagal didaftarkan',e));
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(swReloading) location.reload(); });
+}
+
+
 /* ================= mulai ================= */
 polliHandleReturn();
+setupPWA();
 boot().catch(e=>{ console.error(e); const b=$('#boot'); if(b) b.textContent='Editor gagal dimulai: '+(e&&e.message||e); });
 })();
 
 </script>
+</body>
+</html>
