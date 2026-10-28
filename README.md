@@ -16,7 +16,8 @@ Buka tab **AI** lalu tekan **Masuk** (App Key aplikasi sudah terpasang; Redirect
 Kunci hanya disimpan di browser pengguna, tidak pernah di repo ini.
 
 ## Lisensi aset pihak ketiga
-- Ikon: [Lucide](https://lucide.dev) (ISC)
-- Stiker: [Twemoji](https://github.com/jdecked/twemoji) oleh Twitter, Inc. & kontributor (CC-BY 4.0)
+- Ikon: [Lucide](https://lucide.dev) (ISC), [Tabler Icons](https://tabler.io/icons) (MIT), [Phosphor Icons](https://phosphoricons.com) (MIT)
+- Stiker: [Twemoji](https://github.com/jdecked/twemoji) oleh Twitter, Inc. & kontributor (CC-BY 4.0), [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) oleh Microsoft (MIT)
+- Font: [Google Fonts](https://fonts.google.com) (lisensi terbuka, dimuat sesuai kebutuhan)
 - Model hapus latar: [U²-Net](https://github.com/xuebinqin/U-2-Net) (Apache-2.0)
 - Pustaka: fabric.js (MIT), jsPDF (MIT), JSZip (MIT/GPLv3)

@@ -1,5 +1,5 @@
 /* KLM Desain service worker: aplikasi tetap terbuka saat offline */
-const VERSION='klm-desain-v4';
+const VERSION='klm-desain-v5';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png','./icons/apple-touch-icon.png','./icons/favicon-32.png'];
 const LIBS=['https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
 const DATA=['./icons.json','./emoji.json','./u2netp.json','./u2netp-weights.json'];

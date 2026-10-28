@@ -265,6 +265,30 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .btn.danger{color:var(--danger)}
 .steps{margin:0;padding-left:20px;display:grid;gap:8px;line-height:1.45}
 #installBtn{height:34px;padding:0 12px}
+.zoombar{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+.zoombar output{min-width:46px;text-align:center;font-size:12.5px}
+.fontbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 10px;font-size:16px;text-align:left;min-width:0}
+.fontbtn>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fontbtn:hover{border-color:var(--accent)}
+.modal.tall{height:min(760px,calc(100% - 24px))}
+.modal.tall .mbody{flex:1;min-height:0}
+.fontpick{display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:10px;height:100%;min-height:0}
+.fontpick .crow input{flex:1;min-width:0}
+.fontlist{overflow:auto;min-height:0;border:1px solid var(--line);border-radius:10px;padding:4px}
+.fontitem{display:flex;align-items:center;gap:2px}
+.fontrow{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:0;background:transparent;border-radius:8px;padding:9px 10px;text-align:left}
+.fontrow:hover{background:var(--hover)}
+.fontrow.on{background:var(--accent-soft)}
+.fname{font-size:21px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ftag{font-size:11px;color:var(--muted);font-weight:600;flex:none}
+.sentinel{height:1px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.libitem.badge{padding:5px}
+.libgrid.social{grid-template-columns:repeat(4,minmax(0,1fr))}
+.libitem.soc{aspect-ratio:auto;display:grid;gap:3px;padding:7px 4px 5px;justify-items:center}
+.libitem.soc span{width:100%;aspect-ratio:1;display:block}
+.libitem.soc svg{width:100%;height:100%}
+.libitem.soc small{font-size:10.5px;font-weight:600;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -471,6 +495,7 @@ const SYS=new Set(['Arial','Georgia','Times New Roman','Courier New','Impact','V
 const fontDone=new Set();
 async function loadFont(f,w='400',s='normal'){
   if(!f||SYS.has(f)) return;
+  ensureFontCSS(f);
   const wt=(w==='bold'||+w>=600)?'700':'400', st=s==='italic'?'italic':'normal';
   const key=f+'|'+wt+'|'+st; if(fontDone.has(key)) return;
   try{ await Promise.race([document.fonts.load(`${st} ${wt} 40px "${f}"`),new Promise(r=>setTimeout(r,4000))]); }catch(e){}
@@ -498,7 +523,7 @@ function fixTexts(c){
 })();
 /* ================= kanvas ================= */
 const ACC='#e9542f';
-const PROPS=['id','name','locked','selectable','evented','hasControls','lockMovementX','lockMovementY','lockScalingX','lockScalingY','lockRotation','editable','frame','gradAngle','bgRect','anim','origSrc','cutMask','cutOpt','kind','iconName','iconStroke'];
+const PROPS=['id','name','locked','selectable','evented','hasControls','lockMovementX','lockMovementY','lockScalingX','lockScalingY','lockRotation','editable','frame','gradAngle','bgRect','anim','origSrc','cutMask','cutOpt','kind','iconName','iconStroke','iconData'];
 /* ---------- aset gambar: disimpan sekali, dirujuk dengan id (hemat memori untuk urungkan & simpan) ---------- */
 const assets=new Map(), assetIds=new Map(); let assetSeq=0;
 const ASSET_KEYS=new Set(['src','origSrc','cutMask']);
@@ -1053,6 +1078,7 @@ function renderProps(fromSelection){
   else if(o.type==='image') imageSections(o).forEach(s=>body.append(s));
   else if(o.type==='line') body.append(strokeSection(o,'Garis',true));
   else if(o.type==='path'&&(!o.fill||o.fill==='transparent')&&o.name==='Coretan') body.append(strokeSection(o,'Coretan',true));
+  else if(o.kind==='libicon'&&o.iconData) body.append(libIconSection(o));
   else if(o.kind==='icon') body.append(iconSection(o));
   else if(o.kind==='sticker'||o.kind==='illus') body.append(sec(o.kind==='sticker'?'Stiker':'Ilustrasi',h('p',{class:'hint'},'Ubah ukuran, putar, transparansi, dan bayangan di bawah. Pisahkan grup untuk mewarnai bagiannya satu per satu.'),h('button',{type:'button',class:'btn full',onclick:ungroupSel,html:icon('group',18)+'Pisahkan grup'})));
   else if(o.type==='group') body.append(sec('Grup',h('button',{type:'button',class:'btn full',onclick:ungroupSel,html:icon('group',18)+'Pisahkan grup'})));
@@ -1081,8 +1107,7 @@ function textSections(o){
   const u=U();
   const content=h('textarea',{class:'txt',id:'txtContent','aria-label':'Isi teks',rows:'3'}); content.value=o.text;
   content.addEventListener('input',()=>{ if(o.isEditing) o.exitEditing(); o.set('text',content.value); o.initDimensions(); o.setCoords(); canvas.requestRenderAll(); record(); });
-  const fsel=h('select',{class:'txt','aria-label':'Font'},(FONTS.includes(o.fontFamily)?FONTS:[o.fontFamily,...FONTS]).map(f=>h('option',{value:f,selected:f===o.fontFamily,style:`font-family:"${f}"`},f)));
-  fsel.addEventListener('change',async()=>{ const f=fsel.value; await loadFont(f,o.fontWeight,o.fontStyle); fabric.util.clearFabricFontCache(f); upd(o,{fontFamily:f}); });
+  const fsel=fontButton(o);
   const bold=o.fontWeight==='bold'||+o.fontWeight>=600;
   const tog=(label,on,fn,t,st)=>h('button',{type:'button',class:'tbtn'+(on?' on':''),title:t,'aria-label':t,'aria-pressed':String(on),style:st||null,onclick:async e=>{ await fn(); e.currentTarget.classList.toggle('on'); }},label);
   return [
@@ -1429,7 +1454,7 @@ async function resizeDoc(p,scale){
 async function saveProject(){
   commitPage();
   const as={}; for(const id of usedAssets()) if(assets.has(id)) as[id]=assets.get(id);
-  const data={app:'KLM Desain',version:2,name:doc.name,W:doc.W,H:doc.H,dpi:doc.dpi,anim:!!doc.anim,pages:doc.pages.map(p=>({json:p.json,dur:p.dur,trans:p.trans})),assets:as};
+  const data={app:'KLM Desain',version:2,name:doc.name,W:doc.W,H:doc.H,dpi:doc.dpi,anim:!!doc.anim,pages:doc.pages.map(p=>({json:p.json,dur:p.dur,trans:p.trans})),assets:as,fonts:await fontsForProject()};
   await saveBlob(safeName(doc.name)+'.json',new Blob([JSON.stringify(data)],{type:'application/json'}));
 }
 async function openProjectFile(file){
@@ -1438,6 +1463,7 @@ async function openProjectFile(file){
   if(!data||!Array.isArray(data.pages)||!data.pages.length||!(data.W>0)||!(data.H>0)){ toast('Berkas proyek tidak lengkap atau rusak'); return; }
   queue(async()=>{
     if(data.assets&&typeof data.assets==='object') for(const [id,u] of Object.entries(data.assets)) if(typeof u==='string') putAsset(id,u);
+    await importProjectFonts(data.fonts);
     doc={name:data.name||file.name.replace(/\.json$/i,''),W:data.W,H:data.H,dpi:data.dpi||96,anim:!!data.anim,uploads:doc.uploads,
       pages:data.pages.map(p=>newPage(pack(p.json||p),{dur:clampDur(p.dur),trans:TRANS_IDS.has(p.trans)?p.trans:'none'}))};
     $('#docName').value=doc.name; setZoom(fitZoom(),true); await loadPage(0); regenThumbs(); persistSoon(); if(curTab) renderTab();
@@ -1599,6 +1625,8 @@ window.addEventListener('resize',()=>{ if(!isPhone()){ $('#props').classList.rem
 /* ================= mulai ================= */
 async function boot(){
   buildRail();
+  await loadStoredFonts();
+  getFontCatalog().catch(()=>{});
   let saved=null;
   try{ saved=await IDB.get('doc'); }catch(e){ setStatus('Simpan otomatis tidak tersedia'); }
   let seed=false;
@@ -1954,6 +1982,195 @@ function GifEncoder(w, h, opts) {
 
 
 
+/* ================= font: katalog Google Fonts, pemilih bergaya, unggah font sendiri ================= */
+const FONTCAT={list:null,map:new Map(),loading:null};
+const CAT_LABEL={s:'Sans',r:'Serif',d:'Dekoratif',h:'Tulisan tangan',m:'Monospace'};
+const POPULAR=['Poppins','Montserrat','Plus Jakarta Sans','Inter','Roboto','Open Sans','Lato','Nunito','Raleway','Kanit','Lexend','Oswald','Bebas Neue','Anton','Archivo Black','Righteous','Bungee','Playfair Display','Merriweather','Lora','Roboto Slab','DM Serif Display','Cinzel','Abril Fatface','Pacifico','Lobster','Dancing Script','Great Vibes','Caveat','Satisfy','Sacramento','Permanent Marker','Amatic SC','Fredoka','Baloo 2','Comfortaa','Quicksand','Rubik','Space Grotesk','Amiri','Cairo','Tajawal','Reem Kufi','Lateef','Scheherazade New','Noto Naskh Arabic','Aref Ruqaa','Bodoni Moda','Teko','Russo One'];
+const uploadedFonts=new Map(); // family -> [{id,name,weight,style,face}]
+function getFontCatalog(){
+  if(!FONTCAT.loading) FONTCAT.loading=fetchJSON('fonts.json').then(a=>{ FONTCAT.list=a.map(([n,c,v,ar])=>({n,c,v,ar:!!ar})); FONTCAT.list.forEach(f=>FONTCAT.map.set(f.n,f)); return FONTCAT.list; })
+    .catch(e=>{ FONTCAT.loading=null; throw e; });
+  return FONTCAT.loading;
+}
+const fullCSS=new Set(), previewLinks=new Map();
+function gfFamilyParam(n){ return encodeURIComponent(n).replace(/%20/g,'+'); }
+function ensureFontCSS(f){
+  if(!f||SYS.has(f)||uploadedFonts.has(f)||fullCSS.has(f)) return;
+  const meta=FONTCAT.map.get(f);
+  if(!meta&&!FONTS.includes(f)) return; // tidak dikenal: biarkan memakai cadangan
+  fullCSS.add(f);
+  const pv=previewLinks.get(f); if(pv){ pv.remove(); previewLinks.delete(f); }
+  if(FONTS.includes(f)&&!meta) return; // sudah dimuat lewat tautan awal
+  const axes=meta.v.split(';').map(x=>x.split(',').map(Number)).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const hasItal=axes.some(a=>a[0]===1);
+  const spec=hasItal?'ital,wght@'+axes.map(a=>a[0]+','+a[1]).join(';'):'wght@'+[...new Set(axes.map(a=>a[1]))].join(';');
+  document.head.append(h('link',{rel:'stylesheet',href:'https://fonts.googleapis.com/css2?family='+gfFamilyParam(f)+':'+spec+'&display=swap'}));
+}
+function ensurePreview(f){
+  if(!f||SYS.has(f)||uploadedFonts.has(f)||fullCSS.has(f)||previewLinks.has(f)||FONTS.includes(f)) return;
+  const meta=FONTCAT.map.get(f); if(!meta) return;
+  const w=meta.v.split(';')[0].split(',')[1];
+  const l=h('link',{rel:'stylesheet',href:'https://fonts.googleapis.com/css2?family='+gfFamilyParam(f)+':wght@'+w+'&text='+encodeURIComponent(f+'AaBb')+'&display=swap'});
+  previewLinks.set(f,l); document.head.append(l);
+}
+
+/* ---------- font unggahan (disimpan di IndexedDB, permanen di perangkat ini) ---------- */
+async function readSfntInfo(buf){
+  let dv=new DataView(buf); const tag=dv.getUint32(0);
+  const tables={};
+  if(tag===0x774F4646){ // WOFF
+    const n=dv.getUint16(12);
+    for(let i=0;i<n;i++){ const o=44+i*20, t=String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1),dv.getUint8(o+2),dv.getUint8(o+3));
+      tables[t]={off:dv.getUint32(o+4),comp:dv.getUint32(o+8),len:dv.getUint32(o+12)}; }
+    const get=async t=>{ const e=tables[t]; if(!e) return null; let u=new Uint8Array(buf,e.off,e.comp);
+      if(e.comp<e.len){ if(typeof DecompressionStream==='undefined') return null; const s=new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate')); u=new Uint8Array(await new Response(s).arrayBuffer()); }
+      return new DataView(u.buffer,u.byteOffset,u.byteLength); };
+    return parseNames(await get('name'),await get('OS/2'));
+  }
+  if(tag!==0x00010000&&tag!==0x4F54544F&&tag!==0x74727565) return {};
+  const n=dv.getUint16(4);
+  for(let i=0;i<n;i++){ const o=12+i*16, t=String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1),dv.getUint8(o+2),dv.getUint8(o+3)); tables[t]={off:dv.getUint32(o+8),len:dv.getUint32(o+12)}; }
+  const view=t=>tables[t]?new DataView(buf,tables[t].off,tables[t].len):null;
+  return parseNames(view('name'),view('OS/2'));
+}
+function parseNames(nv,os2){
+  const out={};
+  if(nv){
+    const count=nv.getUint16(2), so=nv.getUint16(4), found={};
+    for(let i=0;i<count;i++){
+      const o=6+i*12, pid=nv.getUint16(o), eid=nv.getUint16(o+2), lang=nv.getUint16(o+4), nid=nv.getUint16(o+6), len=nv.getUint16(o+8), off=nv.getUint16(o+10);
+      if(![1,2,4,16,17].includes(nid)) continue;
+      let s='';
+      if(pid===3||pid===0){ for(let k=0;k+1<len;k+=2) s+=String.fromCharCode(nv.getUint16(so+off+k)); if(pid===3&&lang!==0x409&&found[nid]) continue; }
+      else if(pid===1&&eid===0){ for(let k=0;k<len;k++) s+=String.fromCharCode(nv.getUint8(so+off+k)); if(found[nid]) continue; }
+      else continue;
+      if(s.trim()) found[nid]=s.trim();
+    }
+    out.family=found[16]||found[1]; out.sub=found[17]||found[2]; out.full=found[4];
+  }
+  if(os2&&os2.byteLength>=64){ out.weight=os2.getUint16(4); out.italic=!!(os2.getUint16(62)&1); }
+  return out;
+}
+const FONT_EXT=/\.(ttf|otf|woff2?)$/i;
+async function registerFontRecord(rec){
+  const face=new FontFace(rec.family,rec.data,{weight:String(rec.weight||400),style:rec.style||'normal'});
+  await face.load(); document.fonts.add(face);
+  if(!uploadedFonts.has(rec.family)) uploadedFonts.set(rec.family,[]);
+  const arr=uploadedFonts.get(rec.family); if(!arr.some(x=>x.id===rec.id)) arr.push({id:rec.id,name:rec.name,weight:rec.weight,style:rec.style,face});
+}
+async function storedFonts(){ try{ return (await IDB.get('fonts'))||[]; }catch(e){ return []; } }
+async function loadStoredFonts(){
+  for(const rec of await storedFonts()){ try{ await registerFontRecord(rec); }catch(e){ console.warn('Font unggahan gagal dimuat',rec.name,e); } }
+}
+async function addFontFiles(files){
+  const list=[...files].filter(f=>FONT_EXT.test(f.name));
+  if(!list.length){ toast('Pilih berkas font: TTF, OTF, WOFF, atau WOFF2'); return []; }
+  const recs=await storedFonts(), added=[];
+  for(const f of list){
+    try{
+      const data=await f.arrayBuffer();
+      let info={}; try{ info=await readSfntInfo(data); }catch(_){}
+      const base=f.name.replace(FONT_EXT,'');
+      let family=(info.family||base.replace(/[-_ ]?(regular|bold|italic|bolditalic|light|medium|semibold|black|thin)$/i,'')||base).trim().slice(0,80);
+      const weight=info.weight&&info.weight>=100&&info.weight<=900?Math.round(info.weight/100)*100:(/bold/i.test(info.sub||base)?700:400);
+      const style=(info.italic||/italic|oblique/i.test(info.sub||base))?'italic':'normal';
+      const rec={id:uid(),family,name:info.full||base,weight,style,data};
+      await registerFontRecord(rec);
+      recs.push(rec); added.push(family);
+    }catch(e){ console.error(e); toast('Font "'+f.name+'" tidak bisa dibaca'); }
+  }
+  try{ await IDB.set('fonts',recs); }catch(e){ toast('Font dipakai sementara; penyimpanan permanen tidak tersedia di browser ini'); }
+  if(added.length) toast(added.length===1?'Font "'+added[0]+'" ditambahkan':added.length+' font ditambahkan');
+  return added;
+}
+async function removeFontFamily(family){
+  const recs=(await storedFonts()).filter(r=>r.family!==family);
+  try{ await IDB.set('fonts',recs); }catch(_){}
+  (uploadedFonts.get(family)||[]).forEach(x=>{ try{ document.fonts.delete(x.face); }catch(_){} });
+  uploadedFonts.delete(family);
+  toast('Font "'+family+'" dihapus dari daftar');
+}
+// sertakan font unggahan yang dipakai saat menyimpan proyek
+async function fontsForProject(){
+  const used=new Set(); doc.pages.forEach(p=>collectFonts(unpack(p.json)).forEach(([f])=>used.add(f)));
+  const out=[];
+  for(const r of await storedFonts()) if(used.has(r.family)){ let s=''; const u=new Uint8Array(r.data); for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); out.push({family:r.family,name:r.name,weight:r.weight,style:r.style,b64:btoa(s)}); }
+  return out;
+}
+async function importProjectFonts(list){
+  if(!Array.isArray(list)||!list.length) return;
+  const recs=await storedFonts();
+  for(const f of list){
+    if(!f||!f.b64||!f.family) continue;
+    if(recs.some(r=>r.family===f.family&&r.weight===f.weight&&r.style===f.style)) continue;
+    try{ const bin=atob(f.b64), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+      const rec={id:uid(),family:String(f.family).slice(0,80),name:f.name||f.family,weight:f.weight||400,style:f.style==='italic'?'italic':'normal',data:u.buffer};
+      await registerFontRecord(rec); recs.push(rec); }catch(e){ console.warn(e); }
+  }
+  try{ await IDB.set('fonts',recs); }catch(_){}
+}
+
+/* ---------- pemilih font ---------- */
+let fontTab='pop';
+function fontButton(o){
+  const b=h('button',{type:'button',class:'fontbtn',id:'fontBtn','aria-label':'Pilih font, saat ini '+o.fontFamily},h('span',{style:`font-family:"${o.fontFamily}",system-ui`},o.fontFamily),h('span',{html:icon('down',16)}));
+  b.onclick=()=>openFontPicker(o.fontFamily,async f=>{
+    await loadFont(f,o.fontWeight,o.fontStyle); fabric.util.clearFabricFontCache(f); upd(o,{fontFamily:f});
+    b.firstChild.textContent=f; b.firstChild.style.fontFamily=`"${f}",system-ui`; });
+  return b;
+}
+function openFontPicker(current,onPick){
+  const search=h('input',{type:'search',class:'txt',id:'fontSearch',placeholder:'Cari font…','aria-label':'Cari font'});
+  const tabs=h('div',{class:'chips'});
+  const list=h('div',{class:'fontlist',role:'listbox'});
+  const status=h('p',{class:'hint',style:'margin:0'},'Memuat daftar font…');
+  const upInp=h('input',{type:'file',accept:'.ttf,.otf,.woff,.woff2',multiple:true,hidden:true});
+  const TABS=[['pop','Populer'],['mine','Font saya'],['all','Semua'],['s','Sans'],['r','Serif'],['d','Dekoratif'],['h','Tulisan tangan'],['m','Monospace'],['ar','Arab']];
+  let items=[], shown=0, io=null;
+  const drawTabs=()=>{ tabs.innerHTML=''; TABS.forEach(([k,l])=>tabs.append(h('button',{type:'button',class:'chip'+(fontTab===k?' on':''),onclick:()=>{ fontTab=k; if(k==='mine'||k==='pop') search.value=''; drawTabs(); fill(); }},l+(k==='mine'&&uploadedFonts.size?' ('+uploadedFonts.size+')':'')))); };
+  function row(name,mine){
+    const btn=h('button',{type:'button',class:'fontrow'+(name===current?' on':''),role:'option','aria-selected':String(name===current),onclick:async()=>{ close(); await onPick(name); }},
+      h('span',{class:'fname',style:`font-family:"${name}",system-ui`},name),
+      mine?h('span',{class:'ftag'},'Unggahan'):(FONTCAT.map.get(name)?h('span',{class:'ftag'},CAT_LABEL[FONTCAT.map.get(name).c]||''):null));
+    btn.dataset.font=name;
+    const wrap=h('div',{class:'fontitem'},btn);
+    if(mine) wrap.append(h('button',{type:'button',class:'ib sm',title:'Hapus font '+name,'aria-label':'Hapus font '+name,html:icon('trash',16),onclick:async()=>{ await removeFontFamily(name); drawTabs(); fill(); }}));
+    return wrap;
+  }
+  function more(){
+    const slice=items.slice(shown,shown+60); shown+=slice.length;
+    slice.forEach(it=>{ const r=row(it.n,it.mine); list.insertBefore(r,sentinel); if(io&&!it.mine) io.observe(r.firstChild); });
+  }
+  const sentinel=h('div',{class:'sentinel'});
+  async function fill(){
+    list.innerHTML=''; list.append(sentinel); shown=0;
+    const q=search.value.trim().toLowerCase();
+    try{ await getFontCatalog(); }catch(e){ status.textContent=e.message; }
+    const mine=[...uploadedFonts.keys()].map(n=>({n,mine:true}));
+    const cat=FONTCAT.list||FONTS.map(n=>({n,c:'s',v:'0,400'}));
+    let src;
+    if(fontTab==='mine') src=mine;
+    else if(fontTab==='pop'){ const set=new Set(); src=[...mine,...[...POPULAR,...FONTS].filter(n=>!set.has(n)&&set.add(n)&&(FONTCAT.map.has(n)||FONTS.includes(n))).map(n=>({n}))]; }
+    else if(fontTab==='all') src=[...mine,...cat];
+    else if(fontTab==='ar') src=cat.filter(f=>f.ar);
+    else src=cat.filter(f=>f.c===fontTab);
+    items=q?src.filter(f=>f.n.toLowerCase().includes(q)):src;
+    status.textContent=fontTab==='mine'&&!items.length?'Belum ada font unggahan. Tekan "Unggah font" untuk menambahkan TTF, OTF, WOFF, atau WOFF2.':`${items.length.toLocaleString('id-ID')} font`;
+    more();
+  }
+  io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ ensurePreview(e.target.dataset.font); io.unobserve(e.target); } }),{root:list,rootMargin:'200px'});
+  const moreIO=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)&&shown<items.length) more(); },{root:list,rootMargin:'400px'});
+  moreIO.observe(sentinel);
+  search.addEventListener('input',()=>{ clearTimeout(search._t); search._t=setTimeout(()=>{ if(search.value.trim()&&fontTab!=='all'&&fontTab!=='mine') { fontTab='all'; drawTabs(); } fill(); },150); });
+  upInp.onchange=async()=>{ const added=await addFontFiles(upInp.files); upInp.value=''; if(added.length){ fontTab='mine'; search.value=''; drawTabs(); fill(); } };
+  const body=h('div',{class:'fontpick'},h('div',{class:'crow'},search,h('button',{type:'button',class:'btn',html:icon('upload',16)+'Unggah font',onclick:()=>upInp.click()}),upInp),tabs,status,list,
+    h('p',{class:'hint credit',style:'margin:0'},'Font katalog dari Google Fonts (lisensi terbuka). Font unggahan tersimpan di perangkat ini dan ikut tersimpan di file proyek.'));
+  const close=modal('Pilih font',body,[{label:'Tutup'}]);
+  const mEl=body.closest('.modal'); if(mEl) mEl.classList.add('tall');
+  drawTabs(); fill(); setTimeout(()=>search.focus(),50);
+}
+
+
 /* ================= pustaka: ikon, stiker, latar generatif ================= */
 const LIB={icons:null,emoji:null};
 async function fetchJSON(name){
@@ -2025,45 +2242,172 @@ function iconSection(o){
     box);
 }
 
+/* ---------- set ikon & paket stiker ---------- */
+const ICON_SETS=[
+  {id:'lucide',name:'Garis',file:'icons.json',kind:'stroke',vb:24},
+  {id:'tabler',name:'Garis 2',file:'ic-tabler.json',kind:'stroke',vb:24},
+  {id:'tablerf',name:'Isi',file:'ic-tabler-fill.json',kind:'fill',vb:24},
+  {id:'phduo',name:'Duotone',file:'ic-ph-duo.json',kind:'fill',vb:256},
+  {id:'phfill',name:'Tebal',file:'ic-ph-fill.json',kind:'fill',vb:256}];
+const STICKER_PACKS=[
+  {id:'tw',name:'Emoji',files:['emoji.json'],fmt:'tw'},
+  {id:'flat',name:'Datar',files:['stk-fluent-flat.json'],fmt:'svg'},
+  {id:'3d',name:'3D',files:['stk-3d-0.json','stk-3d-1.json','stk-3d-2.json'],fmt:'img'}];
+const ICON_STYLES=[['plain','Polos'],['sq3d','Kotak 3D'],['ci3d','Bulat 3D'],['circle','Bulat'],['soft','Lembut']];
+const SETDATA=new Map(), PACKDATA=new Map();
+function getSet(id){
+  if(!SETDATA.has(id)){ const set=ICON_SETS.find(x=>x.id===id);
+    SETDATA.set(id,fetchJSON(set.file).then(a=>{ const list=a.map(([n,t,s])=>({n,t:(n.replace(/-/g,' ')+' '+(t||'')).toLowerCase(),s})); list.byName=new Map(list.map(x=>[x.n,x])); return list; }).catch(e=>{ SETDATA.delete(id); throw e; })); }
+  return SETDATA.get(id);
+}
+function getPack(id,onPart){
+  if(!PACKDATA.has(id)){ const pk=STICKER_PACKS.find(x=>x.id===id);
+    PACKDATA.set(id,(async()=>{ const out=[];
+      for(const f of pk.files){ const a=await fetchJSON(f);
+        if(pk.fmt==='tw') a.forEach(([c,n,cp,s])=>out.push({t:n,s,fmt:'svg'}));
+        else a.forEach(([n,kw,g,s])=>out.push({t:(n+' '+kw).toLowerCase(),name:n,s,fmt:pk.fmt}));
+        onPart&&onPart(out.length); }
+      return out; })().catch(e=>{ PACKDATA.delete(id); throw e; })); }
+  return PACKDATA.get(id);
+}
+function mixHex(hex,to,t){ const a=new fabric.Color(hex).getSource(), b=new fabric.Color(to).getSource(); const c=[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t)); return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join(''); }
+function glyphMarkup(set,item,color,sw){
+  const inner=item.s.replace(/currentColor/g,color);
+  return set.kind==='stroke'?`<g fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${inner}</g>`:`<g fill="${color}">${inner}</g>`;
+}
+let gradSeq=0;
+function buildIconSVG(set,item,d){
+  const style=d.style||'plain', c1=d.c1||'#1a1d26', sw=d.sw||2, vb=set.vb;
+  if(style==='plain') return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vb} ${vb}" width="${vb}" height="${vb}">${glyphMarkup(set,item,c1,set.kind==='stroke'?sw:0)}</svg>`;
+  const g='g'+(++gradSeq).toString(36), top=d.g1||mixHex(c1,'#ffffff',0.28), bot=d.g2||mixHex(c1,'#000000',0.22), ink=d.c2||'#ffffff';
+  const sc=(56/vb).toFixed(5), sc2=(style==='soft'?60:56)/vb;
+  const glyph=(col,dx=0,dy=0,op=1)=>`<g transform="translate(${22+dx} ${22+dy}) scale(${sc})" opacity="${op}">${glyphMarkup(set,item,col,sw)}</g>`;
+  let bg='', glyphs='';
+  if(style==='sq3d'||style==='ci3d'){
+    const shape=style==='sq3d'?(f,ins=0)=>`<rect x="${ins}" y="${ins}" width="${100-2*ins}" height="${100-2*ins}" rx="${24-ins}" fill="${f}"/>`:(f,ins=0)=>`<circle cx="50" cy="50" r="${50-ins}" fill="${f}"/>`;
+    bg=`<defs><linearGradient id="${g}a" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient><linearGradient id="${g}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient></defs>`
+      +shape(mixHex(c1,'#000000',0.35))+shape(`url(#${g}a)`,2.5)
+      +(style==='sq3d'?`<rect x="8" y="6" width="84" height="42" rx="19" fill="url(#${g}b)"/>`:`<ellipse cx="50" cy="28" rx="34" ry="20" fill="url(#${g}b)"/>`);
+    glyphs=glyph(mixHex(c1,'#000000',0.5),1.6,2.4,0.45)+glyph(ink);
+  } else if(style==='circle'){ bg=`<circle cx="50" cy="50" r="50" fill="${c1}"/>`; glyphs=glyph(ink); }
+  else { bg=`<rect width="100" height="100" rx="26" fill="${c1}" fill-opacity="0.16"/>`; glyphs=`<g transform="translate(20 20) scale(${sc2.toFixed(5)})">${glyphMarkup(set,item,c1,sw)}</g>`; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">${bg}${glyphs}</svg>`;
+}
+let iconStyle='plain', iconSetId='lucide', libC1='#1a1d26', libC2='#ffffff';
+async function addLibIcon(setId,item,data){
+  const set=ICON_SETS.find(x=>x.id===setId);
+  const d=Object.assign({set:setId,n:item.n,style:iconStyle,c1:libC1,c2:libC2,sw:libStroke},data||{});
+  try{
+    const o=await svgToObject(buildIconSVG(set,item,d));
+    o.set({kind:'libicon',iconData:d,name:(d.style==='plain'?'Ikon ':'Ikon 3D ')+item.n.replace(/-/g,' ')});
+    if(d.style==='sq3d'||d.style==='ci3d') o.set('shadow',new fabric.Shadow({color:'rgba(0,0,0,0.28)',blur:Math.round(Math.min(doc.W,doc.H)*0.02),offsetX:0,offsetY:Math.round(Math.min(doc.W,doc.H)*0.012)}));
+    o.scaleToWidth(Math.min(doc.W,doc.H)*.2);
+    place(o,'Ikon');
+  }catch(e){ toast('Ikon gagal ditambahkan: '+e.message); }
+}
+async function rebuildLibIcon(o,patch){
+  const d=Object.assign({},o.iconData,patch), set=ICON_SETS.find(x=>x.id===d.set);
+  const list=await getSet(d.set), item=list.byName.get(d.n); if(!item) return;
+  const n=await svgToObject(buildIconSVG(set,item,d));
+  const w=o.getScaledWidth(), c=o.getCenterPoint(), idx=canvas.getObjects().indexOf(o);
+  n.set({kind:'libicon',iconData:d,name:o.name,id:o.id,anim:o.anim,opacity:o.opacity,angle:o.angle,flipX:o.flipX,flipY:o.flipY,
+    shadow:(d.style==='sq3d'||d.style==='ci3d')?(o.shadow||new fabric.Shadow({color:'rgba(0,0,0,0.28)',blur:Math.round(Math.min(doc.W,doc.H)*0.02),offsetX:0,offsetY:Math.round(Math.min(doc.W,doc.H)*0.012)})):(o.iconData.style==='sq3d'||o.iconData.style==='ci3d'?null:o.shadow)});
+  n.scaleToWidth(w); n.setPositionByOrigin(c,'center','center'); n.setCoords();
+  loading=true; canvas.remove(o); canvas.insertAt(n,Math.max(0,idx)); loading=false;
+  canvas.setActiveObject(n); canvas.requestRenderAll(); record(); renderProps(true);
+}
+function libIconSection(o){
+  const d=o.iconData, set=ICON_SETS.find(x=>x.id===d.set)||ICON_SETS[0];
+  let t; const later=fn=>{ clearTimeout(t); t=setTimeout(fn,180); };
+  return sec('Ikon',
+    field('Gaya',seg(ICON_STYLES.map(([v,l])=>({v,l})),d.style,v=>rebuildLibIcon(o,{style:v}))),
+    colorField(d.style==='plain'||d.style==='soft'?'Warna':'Warna latar',d.c1,v=>later(()=>rebuildLibIcon(o,{c1:v,g1:null,g2:null}))),
+    d.style!=='plain'&&d.style!=='soft'?colorField('Warna ikon',d.c2||'#ffffff',v=>later(()=>rebuildLibIcon(o,{c2:v}))):null,
+    set.kind==='stroke'?slider('Ketebalan garis',0.5,4,0.25,d.sw||2,v=>later(()=>rebuildLibIcon(o,{sw:v})),v=>(+v).toFixed(2)):null);
+}
+const SOCIAL3D=[
+  ['message-circle','#22c55e','Chat'],['camera','#ec4899','Kamera'],['play','#ef4444','Putar'],['heart','#ff3b6b','Suka'],['thumbs-up','#3b82f6','Jempol'],
+  ['share-2','#0fb5ae','Bagikan'],['at-sign','#7b5cff','Akun'],['hash','#4f46e5','Tagar'],['send','#0ea5e9','Kirim'],['bell','#f59e0b','Lonceng'],
+  ['music','#7c3aed','Musik'],['mail','#ea4335','Surel'],['phone','#22c55e','Telepon'],['globe','#0ea5e9','Situs'],['map-pin','#ef4444','Lokasi'],
+  ['shopping-bag','#f97316','Belanja'],['link','#64748b','Tautan'],['user-plus','#2563eb','Ikuti'],['video','#8b5cf6','Video'],['message-square','#6366f1','Pesan'],
+  ['image','#ec4899','Foto'],['mic','#ef4444','Siaran'],['radio','#f43f5e','Langsung'],['bookmark','#eab308','Simpan'],['star','#f59e0b','Bintang'],
+  ['smile','#facc15','Senyum'],['gift','#db2777','Hadiah'],['calendar','#3b82f6','Jadwal'],['shopping-cart','#16a34a','Keranjang'],['wifi','#06b6d4','Online']];
+
 /* ---------- panel pustaka di tab Elemen ---------- */
+let libMode='icons', packId='tw';
 function librarySection(){
   const wrap=h('div',{});
-  let mode='icons', q='';
-  const tabs=seg([{v:'icons',l:'Ikon'},{v:'stickers',l:'Stiker'}],mode,v=>{ mode=v; draw(); });
+  let q='';
   const search=h('input',{type:'search',class:'txt',id:'libSearch',placeholder:'Cari: rumah, bintang, kopi…','aria-label':'Cari elemen'});
-  const opts=h('div',{class:'field'});
-  const grid=h('div',{class:'libgrid'});
+  const top=h('div',{}), opts=h('div',{class:'field'}), grid=h('div',{class:'libgrid'});
   const more=h('button',{type:'button',class:'btn full',hidden:true},'Tampilkan lebih banyak');
   const status=h('p',{class:'hint'},'Memuat pustaka…');
-  let list=[], shown=0, token=0;
+  const credit=h('p',{class:'hint credit'});
+  let list=[], shown=0, token=0, curSet=null;
   const PAGE=120;
   search.addEventListener('input',()=>{ q=search.value; clearTimeout(search._t); search._t=setTimeout(draw,180); });
   more.onclick=()=>renderMore();
   function renderMore(){
     const slice=list.slice(shown,shown+PAGE); shown+=slice.length;
-    if(mode==='icons') slice.forEach(ic=>grid.append(h('button',{type:'button',class:'libitem',title:ic.n.replace(/-/g,' '),'aria-label':'Ikon '+ic.n.replace(/-/g,' '),html:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic.s}</svg>`,onclick:()=>addIcon(ic)})));
-    else slice.forEach(em=>grid.append(h('button',{type:'button',class:'libitem em',title:em.t,'aria-label':'Stiker '+em.t,onclick:()=>addSticker(em)},h('img',{src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(em.s),alt:'',loading:'lazy'}))));
+    if(libMode==='icons'){ const set=curSet;
+      slice.forEach(ic=>grid.append(h('button',{type:'button',class:'libitem'+(iconStyle==='plain'?'':' badge'),title:ic.n.replace(/-/g,' '),'aria-label':'Ikon '+ic.n.replace(/-/g,' '),html:buildIconSVG(set,ic,{style:iconStyle,c1:iconStyle==='plain'?'currentColor':libC1,c2:libC2,sw:libStroke}),onclick:()=>addLibIcon(set.id,ic)}))); }
+    else slice.forEach(em=>grid.append(h('button',{type:'button',class:'libitem em',title:em.name||em.t,'aria-label':'Stiker '+(em.name||em.t),onclick:()=>addPackSticker(em)},h('img',{src:em.fmt==='img'?em.s:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(em.s),alt:'',loading:'lazy'}))));
     more.hidden=shown>=list.length;
+  }
+  function drawTop(){
+    top.innerHTML='';
+    top.append(seg([{v:'icons',l:'Ikon'},{v:'stickers',l:'Stiker'},{v:'social',l:'Sosial 3D'}],libMode,v=>{ libMode=v; drawTop(); draw(); }));
   }
   async function draw(){
     const my=++token; grid.innerHTML=''; shown=0; more.hidden=true; status.hidden=false; status.textContent='Memuat pustaka…';
-    opts.innerHTML='';
-    if(mode==='icons'){
-      opts.append(h('div',{class:'grid2'},
-        h('div',{class:'crow'},(()=>{ const c=h('input',{type:'color',class:'cpick',value:libColor,'aria-label':'Warna ikon baru'}); c.oninput=()=>libColor=c.value; return c; })(),h('span',{class:'hint'},'Warna')),
-        h('label',{class:'num',title:'Ketebalan garis'},h('span',{},'Tebal'),(()=>{ const i=h('input',{type:'number',min:'0.5',max:'4',step:'0.25',value:libStroke,'aria-label':'Ketebalan garis ikon'}); i.onchange=()=>{ const v=+i.value; if(v>=0.5&&v<=4) libStroke=v; }; return i; })())));
+    opts.innerHTML=''; search.hidden=libMode==='social';
+    grid.className='libgrid'+(libMode==='social'?' social':'');
+    if(libMode==='social'){
+      status.textContent='Ikon media sosial bergaya 3D. Klik untuk menambahkan, lalu ubah warna atau gayanya di panel kanan.';
+      credit.textContent='Logo resmi platform tidak disertakan karena merupakan merek dagang pemiliknya. Bila perlu, unggah logo Anda sendiri lewat Unggahan.';
+      let set=ICON_SETS[0]; let lst; try{ lst=await getSet('lucide'); }catch(e){ status.textContent=e.message; return; }
+      if(my!==token) return;
+      SOCIAL3D.forEach(([n,c,label,gr])=>{ const it=lst.byName.get(n); if(!it) return;
+        const d={style:'sq3d',c1:c,c2:'#ffffff',sw:2.2,g1:gr?gr[0]:null,g2:gr?gr[1]:null};
+        grid.append(h('button',{type:'button',class:'libitem badge soc',title:label,'aria-label':'Ikon '+label,onclick:()=>addLibIcon('lucide',it,d)},h('span',{html:buildIconSVG(set,it,d)}),h('small',{},label))); });
+      return;
+    }
+    if(libMode==='icons'){
+      curSet=ICON_SETS.find(x=>x.id===iconSetId)||ICON_SETS[0];
+      opts.append(
+        h('div',{class:'chips'},ICON_SETS.map(st=>h('button',{type:'button',class:'chip'+(st.id===iconSetId?' on':''),onclick:()=>{ iconSetId=st.id; draw(); }},st.name))),
+        h('div',{class:'chips'},ICON_STYLES.map(([v,l])=>h('button',{type:'button',class:'chip'+(v===iconStyle?' on':''),onclick:()=>{ iconStyle=v; draw(); }},l))),
+        h('div',{class:'grid2'},
+          h('div',{class:'crow'},(()=>{ const c=h('input',{type:'color',class:'cpick',value:libC1,'aria-label':'Warna ikon baru'}); c.oninput=()=>{ libC1=c.value; clearTimeout(c._t); c._t=setTimeout(()=>{ if(iconStyle!=='plain') draw(); },250); }; return c; })(),h('span',{class:'hint'},iconStyle==='plain'?'Warna':'Warna latar')),
+          curSet.kind==='stroke'?h('label',{class:'num',title:'Ketebalan garis'},h('span',{},'Tebal'),(()=>{ const i=h('input',{type:'number',min:'0.5',max:'4',step:'0.25',value:libStroke,'aria-label':'Ketebalan garis ikon'}); i.onchange=()=>{ const v=+i.value; if(v>=0.5&&v<=4){ libStroke=v; draw(); } }; return i; })()):h('span',{})));
+      credit.textContent='Ikon: Lucide (ISC), Tabler Icons (MIT), Phosphor Icons (MIT).';
+    } else {
+      opts.append(h('div',{class:'chips'},STICKER_PACKS.map(pk=>h('button',{type:'button',class:'chip'+(pk.id===packId?' on':''),onclick:()=>{ packId=pk.id; draw(); }},pk.name))));
+      credit.textContent='Stiker: Twemoji (CC-BY 4.0), Fluent Emoji oleh Microsoft (MIT).';
     }
     try{
-      const all=mode==='icons'?await getIcons():await getEmoji();
+      const all=libMode==='icons'?await getSet(iconSetId):await getPack(packId,n=>{ if(my===token) status.textContent='Memuat stiker… '+n; });
       if(my!==token) return;
-      const m=matcher(q); list=all.filter(x=>m(x.t)); if(q.trim()){ const nm=x=>mode==='icons'?x.n:x.t.split(' ').slice(0,3).join(' '); list=list.map((x,i)=>[x,m.score(nm(x)),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]); }
-      status.textContent=list.length?`${list.length.toLocaleString('id-ID')} ${mode==='icons'?'ikon':'stiker'}`:'Tidak ada hasil. Coba kata lain, misalnya bahasa Inggris.';
+      const m=matcher(q); list=all.filter(x=>m(x.t));
+      if(q.trim()){ const nm=x=>libMode==='icons'?x.n:(x.name||x.t.split(' ').slice(0,3).join(' ')).toLowerCase(); list=list.map((x,i)=>[x,m.score(nm(x)),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]); }
+      status.textContent=list.length?`${list.length.toLocaleString('id-ID')} ${libMode==='icons'?'ikon':'stiker'}`:'Tidak ada hasil. Coba kata lain, misalnya bahasa Inggris.';
       renderMore();
     }catch(e){ if(my===token) status.textContent=e.message; }
   }
-  wrap.append(sec('Pustaka elemen',tabs,search,opts,status,grid,more,h('p',{class:'hint credit'},'Ikon: Lucide (ISC). Stiker: Twemoji oleh Twitter & kontributor (CC-BY 4.0).')));
+  drawTop();
+  wrap.append(sec('Pustaka elemen',top,search,opts,status,grid,more,credit));
   draw();
   return wrap;
+}
+async function addPackSticker(em){
+  try{
+    let o;
+    if(em.fmt==='img'){ o=await new Promise((res,rej)=>fabric.Image.fromURL(em.s,img=>img&&img.width?res(img):rej(new Error('gambar rusak')))); }
+    else o=await svgToObject(em.s);
+    o.set({kind:'sticker',name:'Stiker '+(em.name||'').slice(0,30)});
+    o.scaleToWidth(Math.min(doc.W,doc.H)*.28);
+    place(o,'Stiker');
+  }catch(e){ toast('Stiker gagal ditambahkan: '+e.message); }
 }
 
 /* ---------- generator latar ---------- */
@@ -2274,32 +2618,59 @@ function openCutEditor(o,origURL,work,alpha,aiAlpha,runAI){
     for(let i=0;i<PW*PH;i++){ const v=Math.min(1,b[i]*6); m[i*4]=col[0]; m[i*4+1]=col[1]; m[i*4+2]=col[2]; m[i*4+3]=Math.round(v*255); }
     return {pad,PW,PH,img:new ImageData(m,PW,PH)};
   }
-  function composeTo(ctxOut){
+  function composeTo(){
     for(let i=0;i<N;i++) id.data[i*4+3]=finalAlpha[i];
     wctx.putImageData(id,0,0);
     return work2;
   }
-  // tampilan
-  let disp={s:1,ox:0,oy:0,pad:0};
-  function render(){
-    const r=stageBox.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1);
-    const cw=Math.max(50,r.width), ch=Math.max(50,r.height);
-    view.width=Math.round(cw*dpr); view.height=Math.round(ch*dpr); view.style.width=cw+'px'; view.style.height=ch+'px';
-    const ctx=view.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
-    const pad=opt.outline?opt.ow+2:0, TW=W+2*pad, TH=H+2*pad;
-    const s=Math.min((cw-24)/TW,(ch-24)/TH); const ox=(cw-TW*s)/2, oy=(ch-TH*s)/2;
-    disp={s,ox,oy,pad};
-    // latar pratinjau
-    if(opt.bg==='checker'){ const q=10; for(let y=0;y<ch;y+=q) for(let x=0;x<cw;x+=q){ ctx.fillStyle=((x/q+y/q)&1)?'#d9dce3':'#f4f5f8'; ctx.fillRect(x,y,q,q); } }
-    else { ctx.fillStyle=opt.bg; ctx.fillRect(0,0,cw,ch); }
-    if(opt.outline){ const om=outlineMask(finalAlpha); const oc=document.createElement('canvas'); oc.width=om.PW; oc.height=om.PH; oc.getContext('2d').putImageData(om.img,0,0); ctx.drawImage(oc,ox,oy,TW*s,TH*s); }
-    ctx.imageSmoothingQuality='high';
-    ctx.drawImage(composeTo(),ox+pad*s,oy+pad*s,W*s,H*s);
+  function updRect(x0,y0,x1,y1){
+    x0=Math.max(0,x0|0); y0=Math.max(0,y0|0); x1=Math.min(W-1,Math.ceil(x1)); y1=Math.min(H-1,Math.ceil(y1)); if(x1<x0||y1<y0) return;
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){ const i=y*W+x; id.data[i*4+3]=edit[i]; }
+    wctx.putImageData(id,0,0,x0,y0,x1-x0+1,y1-y0+1);
   }
-  function refresh(){ computeFinal(); render(); }
+  // tampilan dengan zoom & geser
+  let disp={s:1,ox:0,oy:0,pad:0,s0:1}, zoomK=1, panX=0, panY=0, outlineCv=null, checkerPat=null;
+  const zoomOut=h('output',{class:'tnum'},'100%');
+  function layout(){
+    const r=stageBox.getBoundingClientRect(); const cw=Math.max(50,r.width), ch=Math.max(50,r.height);
+    const pad=opt.outline?opt.ow+2:0, TW=W+2*pad, TH=H+2*pad;
+    const s0=Math.min((cw-24)/TW,(ch-24)/TH), s=s0*zoomK;
+    disp={s,s0,ox:(cw-TW*s)/2+panX,oy:(ch-TH*s)/2+panY,pad,cw,ch,TW,TH};
+    zoomOut.textContent=Math.round(zoomK*100)+'%';
+  }
+  function render(){
+    layout();
+    const {cw,ch,s,ox,oy,pad,TW,TH}=disp, dpr=Math.min(2,window.devicePixelRatio||1);
+    const pw=Math.round(cw*dpr), ph=Math.round(ch*dpr);
+    if(view.width!==pw||view.height!==ph){ view.width=pw; view.height=ph; view.style.width=cw+'px'; view.style.height=ch+'px'; }
+    const ctx=view.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    if(opt.bg==='checker'){
+      if(!checkerPat){ const c=document.createElement('canvas'); c.width=c.height=20; const x=c.getContext('2d'); x.fillStyle='#f4f5f8'; x.fillRect(0,0,20,20); x.fillStyle='#d9dce3'; x.fillRect(0,0,10,10); x.fillRect(10,10,10,10); checkerPat=ctx.createPattern(c,'repeat'); }
+      ctx.fillStyle=checkerPat;
+    } else ctx.fillStyle=opt.bg;
+    ctx.fillRect(0,0,cw,ch);
+    if(opt.outline){
+      if(!outlineCv){ const om=outlineMask(finalAlpha); outlineCv=document.createElement('canvas'); outlineCv.width=om.PW; outlineCv.height=om.PH; outlineCv.getContext('2d').putImageData(om.img,0,0); }
+      ctx.drawImage(outlineCv,ox,oy,TW*s,TH*s);
+    }
+    ctx.imageSmoothingEnabled=s<2; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(work2,ox+pad*s,oy+pad*s,W*s,H*s);
+  }
+  function refresh(){ computeFinal(); outlineCv=null; composeTo(); render(); }
+  function zoomAt(sx,sy,f){
+    layout();
+    const nk=Math.min(24,Math.max(0.5,zoomK*f)); if(nk===zoomK) return;
+    const {s,ox,oy,cw,ch,TW,TH}=disp, mx=(sx-ox)/s, my=(sy-oy)/s;
+    zoomK=nk; const ns=disp.s0*nk;
+    panX=(sx-mx*ns)-(cw-TW*ns)/2; panY=(sy-my*ns)-(ch-TH*ns)/2;
+    render();
+  }
+  function fitView(){ zoomK=1; panX=0; panY=0; render(); }
   // kuas
-  let painting=false, last=null;
-  function toMask(e){ const r=view.getBoundingClientRect(); return {x:((e.clientX-r.left)-disp.ox)/disp.s-disp.pad, y:((e.clientY-r.top)-disp.oy)/disp.s-disp.pad}; }
+  let painting=false, last=null, panning=null, spaceDown=false;
+  const ptrs=new Map(); let pinch=null;
+  function localXY(e){ const r=view.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+  function toMask(e){ const p=localXY(e); return {x:(p.x-disp.ox)/disp.s-disp.pad, y:(p.y-disp.oy)/disp.s-disp.pad}; }
   function dab(cx,cy){
     const R=brush/2, x0=Math.max(0,Math.floor(cx-R)), x1=Math.min(W-1,Math.ceil(cx+R)), y0=Math.max(0,Math.floor(cy-R)), y1=Math.min(H-1,Math.ceil(cy+R));
     for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
@@ -2308,22 +2679,57 @@ function openCutEditor(o,origURL,work,alpha,aiAlpha,runAI){
       if(tool==='erase') edit[i]=Math.min(edit[i],Math.round(255*(1-v)));
       else edit[i]=Math.max(edit[i],Math.round(255*v));
     }
+    return [x0,y0,x1,y1];
   }
   function stroke(p){
-    if(last){ const dist=Math.hypot(p.x-last.x,p.y-last.y), step=Math.max(1,brush/5); for(let t=step;t<dist;t+=step) dab(last.x+(p.x-last.x)*t/dist,last.y+(p.y-last.y)*t/dist); }
+    const R=brush/2; let bx0=p.x-R,by0=p.y-R,bx1=p.x+R,by1=p.y+R;
+    if(last){ const dist=Math.hypot(p.x-last.x,p.y-last.y), step=Math.max(1,brush/5); for(let t=step;t<dist;t+=step) dab(last.x+(p.x-last.x)*t/dist,last.y+(p.y-last.y)*t/dist);
+      bx0=Math.min(bx0,last.x-R); by0=Math.min(by0,last.y-R); bx1=Math.max(bx1,last.x+R); by1=Math.max(by1,last.y+R); }
     dab(p.x,p.y); last=p;
-    finalAlpha=edit; render();
+    updRect(bx0,by0,bx1,by1); render();
   }
   const cursor=h('div',{class:'brushcur',hidden:true}); stageBox.append(cursor);
-  view.addEventListener('pointerdown',e=>{ e.preventDefault(); view.setPointerCapture(e.pointerId); undoStack.push(edit.slice()); if(undoStack.length>12) undoStack.shift(); painting=true; last=null; stroke(toMask(e)); });
+  const isPan=e=>tool==='pan'||spaceDown||e.button===1||e.button===2;
+  view.addEventListener('contextmenu',e=>e.preventDefault());
+  view.addEventListener('pointerdown',e=>{
+    e.preventDefault(); view.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,localXY(e));
+    if(ptrs.size===2){
+      // dua jari: batalkan goresan yang baru dimulai, beralih ke cubit-zoom
+      if(painting){ painting=false; last=null; if(undoStack.length){ edit=undoStack.pop(); refresh(); } }
+      panning=null; const [a,b]=[...ptrs.values()]; pinch={d:Math.hypot(a.x-b.x,a.y-b.y),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2}; return;
+    }
+    if(ptrs.size>2) return;
+    if(isPan(e)){ panning={x:e.clientX,y:e.clientY,px:panX,py:panY}; view.style.cursor='grabbing'; return; }
+    undoStack.push(edit.slice()); if(undoStack.length>12) undoStack.shift(); painting=true; last=null; stroke(toMask(e));
+  });
   view.addEventListener('pointermove',e=>{
-    const r=stageBox.getBoundingClientRect(), d=brush*disp.s; cursor.hidden=false;
+    if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,localXY(e));
+    if(pinch&&ptrs.size===2){
+      const [a,b]=[...ptrs.values()], d=Math.hypot(a.x-b.x,a.y-b.y), cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+      panX+=cx-pinch.cx; panY+=cy-pinch.cy; zoomAt(cx,cy,d/Math.max(1,pinch.d)); pinch={d,cx,cy}; return;
+    }
+    if(panning){ panX=panning.px+(e.clientX-panning.x); panY=panning.py+(e.clientY-panning.y); render(); return; }
+    const r=stageBox.getBoundingClientRect(), d=brush*disp.s;
+    cursor.hidden=tool==='pan'||spaceDown||e.pointerType==='touch';
     cursor.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;
     if(painting) stroke(toMask(e));
   });
   view.addEventListener('pointerleave',()=>{ cursor.hidden=true; });
-  const endPaint=()=>{ if(painting){ painting=false; last=null; refresh(); } };
-  view.addEventListener('pointerup',endPaint); view.addEventListener('pointercancel',endPaint);
+  const endPtr=e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null;
+    if(panning&&ptrs.size===0){ panning=null; view.style.cursor=''; }
+    if(painting){ painting=false; last=null; refresh(); } };
+  view.addEventListener('pointerup',endPtr); view.addEventListener('pointercancel',endPtr);
+  view.addEventListener('wheel',e=>{ e.preventDefault(); const p=localXY(e);
+    if(e.ctrlKey||e.metaKey||!e.shiftKey&&Math.abs(e.deltaY)>=Math.abs(e.deltaX)) zoomAt(p.x,p.y,Math.pow(1.0015,-e.deltaY*(e.deltaMode===1?33:1)));
+    else { panX-=e.deltaX; panY-=e.deltaY; render(); } },{passive:false});
+  const keyDn=e=>{ if(e.code==='Space'&&!e.repeat&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){ spaceDown=true; view.style.cursor='grab'; e.preventDefault(); } };
+  const keyUp=e=>{ if(e.code==='Space'){ spaceDown=false; view.style.cursor=''; } };
+  document.addEventListener('keydown',keyDn); document.addEventListener('keyup',keyUp);
+  const zbar=h('div',{class:'zoombar'},
+    h('button',{type:'button',class:'ib sm',title:'Perkecil','aria-label':'Perkecil',html:icon('minus',16),onclick:()=>zoomAt(disp.cw/2,disp.ch/2,1/1.4)}),zoomOut,
+    h('button',{type:'button',class:'ib sm',title:'Perbesar','aria-label':'Perbesar',html:icon('plus',16),onclick:()=>zoomAt(disp.cw/2,disp.ch/2,1.4)}),
+    h('button',{type:'button',class:'ib sm',title:'Pas di layar','aria-label':'Pas di layar',html:icon('fit',16),onclick:fitView}));
+  stageBox.append(zbar);
   // kontrol
   function drawSide(){
     side.innerHTML='';
@@ -2335,15 +2741,16 @@ function openCutEditor(o,origURL,work,alpha,aiAlpha,runAI){
         undoStack.push(edit.slice()); edit=base.slice(); refresh(); drawSide();
       }),
       opt.method==='color'?slider('Toleransi warna',5,140,1,opt.tol,v=>{ opt.tol=v; clearTimeout(drawSide._t); drawSide._t=setTimeout(()=>{ base=colorKeyMask(work.data,W,H,opt.tol); edit=base.slice(); refresh(); },120); }):h('p',{class:'hint'},'Pakai "Warna latar" untuk logo atau foto produk berlatar polos.')),
-      sec('Kuas penyempurna',seg([{v:'erase',l:'Hapus'},{v:'restore',l:'Pulihkan'}],tool,v=>tool=v),
+      sec('Kuas penyempurna',seg([{v:'erase',l:'Hapus'},{v:'restore',l:'Pulihkan'},{v:'pan',l:'Geser'}],tool,v=>{ tool=v; view.style.cursor=v==='pan'?'grab':''; }),
+        h('p',{class:'hint',style:'margin:0'},'Perbesar dengan roda tetikus, tombol +/−, atau cubit dua jari. Geser gambar dengan alat Geser, tahan Spasi, atau dua jari.'),
         slider('Ukuran kuas',4,Math.round(Math.max(W,H)/5),1,brush,v=>brush=v,v=>v+' px'),
         h('div',{class:'grid2'},
           h('button',{type:'button',class:'btn',onclick:()=>{ if(undoStack.length){ edit=undoStack.pop(); refresh(); } else toast('Tidak ada goresan untuk diurungkan'); }},'Urungkan'),
           h('button',{type:'button',class:'btn',onclick:()=>{ undoStack.push(edit.slice()); edit=base.slice(); refresh(); }},'Atur ulang'))),
       sec('Tepi',slider('Kehalusan tepi',0,8,1,opt.feather,v=>{ opt.feather=v; clearTimeout(drawSide._f); drawSide._f=setTimeout(refresh,80); },v=>v+' px')),
       sec('Garis luar stiker',check('Tambahkan garis luar',opt.outline,v=>{ opt.outline=v; refresh(); drawSide(); }),
-        opt.outline?colorField('',opt.oc,v=>{ opt.oc=v; render(); }):null,
-        opt.outline?slider('Tebal garis luar',2,Math.round(Math.max(W,H)/20),1,opt.ow,v=>{ opt.ow=v; clearTimeout(drawSide._o); drawSide._o=setTimeout(render,80); },v=>v+' px'):null),
+        opt.outline?colorField('',opt.oc,v=>{ opt.oc=v; outlineCv=null; render(); }):null,
+        opt.outline?slider('Tebal garis luar',2,Math.round(Math.max(W,H)/20),1,opt.ow,v=>{ opt.ow=v; clearTimeout(drawSide._o); drawSide._o=setTimeout(()=>{ outlineCv=null; render(); },80); },v=>v+' px'):null),
       sec('Latar pratinjau',seg([{v:'checker',l:'Kotak'},{v:'#ffffff',l:'Putih'},{v:'#111111',l:'Hitam'},{v:'#22c55e',l:'Hijau'}],opt.bg,v=>{ opt.bg=v; render(); }))
     );
   }
@@ -2358,6 +2765,7 @@ function openCutEditor(o,origURL,work,alpha,aiAlpha,runAI){
   ]);
   const mEl=body.closest('.modal'); if(mEl) mEl.classList.add('wide');
   const ro=new ResizeObserver(()=>render()); ro.observe(stageBox);
+  const scrimEl=body.closest('.scrim'); const mo=new MutationObserver(()=>{ if(!scrimEl.isConnected){ document.removeEventListener('keydown',keyDn); document.removeEventListener('keyup',keyUp); ro.disconnect(); mo.disconnect(); } }); mo.observe(document.body,{childList:true});
   refresh();
   async function applyCut(){
     computeFinal();
