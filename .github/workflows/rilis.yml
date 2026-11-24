@@ -1,0 +1,67 @@
+name: Rilis exe & apk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rilis
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kumpulkan berkas aplikasi web
+        run: |
+          mkdir -p /tmp/web
+          rsync -a --exclude '.git' --exclude '.github' --exclude 'android' --exclude 'launcher' --exclude 'README.md' ./ /tmp/web/
+          ls /tmp/web | head -50
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Bangun exe Windows
+        run: |
+          rm -rf launcher/web && cp -r /tmp/web launcher/web
+          cd launcher && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H=windowsgui" -o "../KLM-Desain.exe" .
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Terima lisensi Android SDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || yes | sdkmanager --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Bangun APK Android
+        run: |
+          mkdir -p android/app/src/main/assets
+          rm -rf android/app/src/main/assets/web && cp -r /tmp/web android/app/src/main/assets/web
+          rm -f android/app/src/main/assets/web/sw.js
+          cd android && gradle --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "../KLM-Desain.apk"
+
+      - name: Rilis
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: KLM Desain v1.0.${{ github.run_number }}
+          make_latest: true
+          body: |
+            **Windows:** unduh `KLM-Desain.exe`, klik dua kali untuk membuka (bila muncul SmartScreen: *Info selengkapnya → Tetap jalankan*).
+            **Android:** unduh `KLM-Desain.apk`, buka di HP, izinkan *Pasang dari sumber tidak dikenal*, lalu pasang.
+          files: |
+            KLM-Desain.exe
+            KLM-Desain.apk
